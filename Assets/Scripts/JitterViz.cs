@@ -5,51 +5,47 @@ using UnityEngine;
 [ExecuteInEditMode]
 public class JitterViz : MonoBehaviour
 {
-    public float phi;
-    public float sina;
-    public float cosa;
-    public float theta;
-
-    public Vector3 dir; 
-
-    private Vector3 u;
-    private Vector3 v;
-    private Vector3 w;
+    public Transform incidentTransform;
 
     // Start is called before the first frame update
     void Start()
     {
-        w = dir.normalized;
-        u = Vector3.Cross(new Vector3(w.y, w.z, w.x), w).normalized;
-        v = Vector3.Cross(w, u);
     }
 
-    Vector3 Jitter(Vector3 d, float p, float s, float c)
+
+    Vector3 JitterHemiSphere(Vector3 d, Vector3 i)
     {
-        Vector3 w = d.normalized;
-        Vector3 u = Vector3.Cross(new Vector3(w.y, w.z, w.x), w).normalized;
-        Vector3 v = Vector3.Cross(w, u);
-        return u * Mathf.Cos(p) + v * Mathf.Sin(p) * s + w * c;
+        float theta = Random.value * Mathf.PI * 2 * 0.8f;
+        float phi = Random.value * Mathf.PI * 0.5f;
+
+        float x = Mathf.Sin(theta) * Mathf.Sin(phi);
+        float z = Mathf.Cos(theta) * Mathf.Sin(phi);
+        float y = Mathf.Cos(phi);
+
+        Vector3 rotAxis = new Vector3(d.z, 0, -d.x).normalized;
+
+        Debug.DrawRay(transform.position, rotAxis * 1.5f, Color.red);
+
+        float angle = Mathf.Acos(d.y);
+
+        Quaternion q = Quaternion.AngleAxis(angle * 180 / Mathf.PI, rotAxis);
+
+        Debug.Log("Axis: " + rotAxis + ", angle: " + angle);
+
+        return q * new Vector3(x, y, z);
     }
 
     // Update is called once per frame
     void Update()
     {
-        Vector3 newDir = u * Mathf.Cos(phi) + v * Mathf.Sin(phi) * sina + w * cosa;
-        Vector3 newDir2 = u * Mathf.Cos(phi) + v * Mathf.Sin(phi) * Mathf.Sin(theta) + w * Mathf.Cos(theta);
+        Vector3 incidentDir = incidentTransform.forward;
 
-        for(int i = 0; i < 100; i++)
+        Debug.DrawRay(transform.position, transform.up * 1.5f, Color.cyan);
+        Debug.DrawRay(transform.position, incidentDir * 1.5f, Color.yellow);
+
+        for (int i = 0; i < 100; i++)
         {
-            float r1 = Random.value;
-            float r2 = Random.value;
-            float n1 = Mathf.Sqrt(-2 * Mathf.Log(r1)) * Mathf.Cos(2 * Mathf.PI * r2);
-            float n2 = Mathf.Sqrt(-2 * Mathf.Log(r1)) * Mathf.Sin(2 * Mathf.PI * r2);
-            Vector3 rayDir = Jitter(dir, 2 * Mathf.PI * n1, Mathf.Sqrt(n2), Mathf.Sqrt(1 - n2));
-            Debug.DrawRay(Vector3.zero, 4 * rayDir, Color.red * (rayDir.magnitude < 1 ? 0.1f: 1.0f));
-            
+            Debug.DrawRay(transform.position, JitterHemiSphere(transform.up, incidentDir), Color.magenta, 0.5f);
         }
-
-        Debug.DrawRay(Vector3.zero, dir * 5, Color.green);
-        Debug.DrawRay(Vector3.zero, newDir2 * 5, Color.magenta);
     }
 }

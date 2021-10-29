@@ -4,22 +4,14 @@
     {
         _ObjCol ("Object Color", Color) = (0.0, 1.0, 0.0, 1.0)
         _BackCol ("Background Color", Color) = (0.0, 0.0, 0.0, 1.0)
-        _Ambient ("Ambient", Range(0, 1)) = 0.1
-        _SpecPow ("Specular Power", Float) = 1.
-        _ShadowPow ("Shadow Power", Int) = 1
-        _AmbOcc ("Ambient Occlusion", Float) = 200
+        _Roughness ("Roughness", Float) = 0.2
         _Epsilon ("Epsilon", Float) = 0.001
         _MaxDist ("Maximum Distance", Float) = 100
         _MaxSteps ("Maximum Steps", Int) = 100
-        //_FocalDist ("Focal Distance", Float) = 10
-        //_Aperture ("Aperture", Float) = 1
 
-        _MandelboxIts("Mandelbox Iterations", Int) = 10
-        _MandelboxScl("Mandelbox Scale", Float) = 1
-        _MandelboxMnr("Mandelbox Min Radius", Float) = 1
-        _MandelboxMxr("Mandelbox Max Radius", Float) = 1
-        _MandelboxLim("Mandelbox Box Limit", Float) = 1
-        _ParamVector("Parameter Vector", Vector) = (0, 0, 0)
+        _A ("Parameter A", Float) = 0.5
+        _B ("Parameter B", Float) = 10
+        _C ("Parameter C", Float) = 10
     }
     SubShader
     {
@@ -34,8 +26,6 @@
 
             #include "UnityCG.cginc"
             #include "UnityLightingCommon.cginc"
-            //#include "./quaternion.cginc"
-            //#include "./sdf.cginc"
             #include "./pathtracing.cginc"
 
             struct appdata
@@ -52,13 +42,12 @@
             };
 
             sampler2D _MainTex;
+            sampler2D _BackgroundTex;
             float4 _ObjCol;
             float4 _BackCol;
-            float _Ambient;
             float _Intensity;
-            float _SpecPow;
-            int _ShadowPow;
-            float _AmbOcc;
+            float _Roughness;
+
             float _Epsilon;
             float _MaxDist;
             float _MaxSteps;
@@ -72,15 +61,12 @@
             float3 _CameraRight;
             int _FeedbackCounter;
 
-            int _MandelboxIts;
-            float _MandelboxScl;
-            float _MandelboxMnr;
-            float _MandelboxMxr;
-            float _MandelboxLim;
-            float3 _ParamVector;
-
             float _FocalDist;
             float _Aperture;
+
+            float _A;
+            float _B;
+            float _C;
 
             v2f vert (appdata v)
             {
@@ -105,33 +91,41 @@
 
             fixed4 frag (v2f i) : SV_Target
             {
-                fixed4 col = tex2D(_MainTex, i.tex);
+                fixed4 rec = tex2D(_MainTex, i.tex);
+                fixed4 back = tex2D(_BackgroundTex, i.tex);
             
-                SDF sdf = menger_sponge(4, 320);  
-                //sdf = sphere_fold(sdf, _MandelboxMnr, _MandelboxMxr);
-                //sdf = repeat(sdf, _MandelboxScl);
+                SDF scene_sdf = menger_sponge(4, 320);  
+                scene_sdf = sphere_fold(scene_sdf, _A, _B);
+                scene_sdf = repeat(scene_sdf, _C);
                 
-                /*class Custom: SDF {
+                class Custom: SDF {
                     float eval(float3 pos){
                         //pos = mirror_warp(pos, )
                         return sphere(1).eval(pos);
                     }
-                };*/
+                };
 
                 //sdf = sphere(1);
 
-                //Custom sdf;
+                //Custom scene_sdf;
 
-                //fixed4 res = menger_lod_march(_CameraPos, normalize(i.ray), _WorldSpaceLightPos0.xyz, _BackCol, float3(0.0, 0.2, 1.0), _LightColor0.xyz, _Ambient, _Intensity, _SpecPow, _ShadowPow, _AmbOcc, _Epsilon, _MaxDist, _MaxSteps, 12, 320, _MandelboxMnr, _MandelboxMxr, _MandelboxScl, 0.003);
-            
-                //fixed4 res = fixed4(0.0, 1.0, 1.0, 1.0);
+                SDF light_sdf = translate(sphere(20), _CameraPos);
 
-                //fixed4 res = blinn_phong_raymarch(sdf, _CameraPos, normalize(i.ray), _WorldSpaceLightPos0.xyz, _BackCol, _ObjCol, _LightColor0.xyz, _Ambient, _Intensity, _SpecPow, _ShadowPow, _AmbOcc, _Epsilon, _MaxDist, _MaxSteps);
-                fixed4 res = trace_path(sdf, _CameraPos, normalize(i.ray), _WorldSpaceLightPos0.xyz, _Epsilon, _MaxDist, _MaxSteps, 3, i.tex, float3(0.8, 0.0, 1.0), _Intensity * 40, _FocalDist, _Aperture, _CameraFwd, _CameraRight, _CameraUp, _SpecPow);
+                LightingModel lighting_model = torrance_sparrow(_Roughness, GOLD);
 
-                
+                int max_bounces = 3;
+                float3 view_dir = normalize(i.ray);
+                Ray view_ray = to_ray(_CameraPos, view_dir);
+
+                PathTracer path_tracer = new_path_tracer(view_ray, _WorldSpaceLightPos0.xyz, _Epsilon, _MaxDist, _MaxSteps, max_bounces, i.tex, _Intensity, _FocalDist, _Aperture, _CameraRight, _CameraUp, _CameraFwd);
+
+                fixed4 res = saturate(path_tracer.trace_path(scene_sdf, light_sdf, lighting_model));
                 //return fixed4(res.xyz * res.w + col.xyz * (1 - res.w), 1);
-                return fixed4((res.xyz * res.w + col.xyz * col.w * _FeedbackCounter) / (_FeedbackCounter + 1), 1);
+                
+
+                return fixed4((res.xyz * res.a + back.xyz * (1 - res.a) + rec.xyz * _FeedbackCounter + 0.1) / (_FeedbackCounter + 1), 1);
+                //return fixed4((res.xyz * res.a + back.xyz * (1 - res.a) + rec.xyz * (_FeedbackCounter + 1)) / (_FeedbackCounter + 2), 1);
+
             }
             ENDCG
         }

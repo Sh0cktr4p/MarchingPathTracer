@@ -117,7 +117,9 @@ public class ImageEffect : MonoBehaviour
         effectMaterial.SetVector("_CameraFwd", CurrentCamera.transform.forward);
         effectMaterial.SetVector("_CameraRight", CurrentCamera.transform.right);
         effectMaterial.SetVector("_CameraUp", CurrentCamera.transform.up);
+        effectMaterial.SetTexture("_BackgroundTex", src);
 
+        Debug.Log(feedbackCounter);
         if(feedback)
         {
             effectMaterial.SetInt("_FeedbackCounter", feedbackCounter);
@@ -127,9 +129,11 @@ public class ImageEffect : MonoBehaviour
         }
         else
         {
+            Debug.Log("Resetting feedback counter");
             feedbackCounter = 0;
             effectMaterial.SetInt("_FeedbackCounter", feedbackCounter);
             CustomBlit(src, dst, effectMaterial, 0);
+            Graphics.Blit(src, tempTexture);
         }
 
     }
