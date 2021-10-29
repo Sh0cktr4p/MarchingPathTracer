@@ -15,6 +15,7 @@ Ray to_ray(float3 pos, float3 dir) {
     return ray;
 }
 
+
 struct MarchResult{
     float3 _pos;
     float _min_dist;
@@ -30,6 +31,7 @@ MarchResult to_result(float3 pos, float min_dist, int steps){
 
     return result;
 }
+
 
 class RayMarcher {
     float _eps;
@@ -122,58 +124,7 @@ RayMarcher new_ray_marcher(float eps, float max_dist, float max_steps) {
 
 
 
-
-
-// Get the position of the next intersection with the scene
-// If no intersection is found, return the input position
-// Minimum distance is encoded in the 4th vector component
-MarchResult march(SDF sdf, float3 pos, float3 dir, float epsilon, float max_dist, int max_steps){
-    float dist = epsilon;
-    float min_dist = 1.0;
-
-    float3 curr_pos = pos + dir * dist;
-
-    for(int i = 0; i < max_steps; i++){
-        float new_dist = sdf.eval(curr_pos) * 0.4;
-        dist += new_dist;
-        curr_pos = pos + dir * dist;
-
-        min_dist = min(min_dist, 3 * new_dist / dist);
-
-        if(new_dist < epsilon){
-            return to_result(curr_pos, 0, i);
-        }
-
-        if(dist > max_dist){
-            return to_result(pos, min_dist, i);
-        }
-    }
-
-    return to_result(pos, min_dist, max_steps);
-}
-
-float april(SDF sdf, float3 pos, float3 dir, float epsilon, float max_dist, int max_steps){
-    float dist = epsilon;
-    float min_dist = 1.0;
-
-    float3 curr_pos = pos + dir * dist;
-
-    for(int i = 0; i < max_steps; i++){
-        float new_dist = sdf.eval(curr_pos);
-        dist += new_dist;
-        curr_pos = pos + dir * dist;
-
-        if(new_dist < epsilon){
-            return dist;
-        }
-
-        if(dist > max_dist){
-            return dist;
-        }
-    }
-
-    return dist;
-}
+// Deprecated stuff //
 
 
 float softshadow(SDF sdf, float3 ro, float3 rd, float mint, float maxt, float k){
