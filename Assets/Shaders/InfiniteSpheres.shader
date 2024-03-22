@@ -93,8 +93,13 @@
             {
                 fixed4 rec = tex2D(_MainTex, i.tex);
                 fixed4 back = tex2D(_BackgroundTex, i.tex);
+                back *= 0.0;
             
+
+                //SDF scene_sdf = torus(float2(100, 30) * 2);
                 SDF scene_sdf = menger_sponge(4, 320);  
+                //SDF scene_sdf = menger_lod(4, 320, 8, _CameraPos, normalize(i.ray), _Epsilon, _MaxDist, _MaxSteps);
+                
                 scene_sdf = sphere_fold(scene_sdf, _A, _B);
                 scene_sdf = repeat(scene_sdf, _C);
                 
@@ -109,21 +114,27 @@
 
                 //Custom scene_sdf;
 
-                SDF light_sdf = translate(sphere(20), _CameraPos);
 
-                LightingModel lighting_model = torrance_sparrow(_Roughness, GOLD);
+                SDF light_sdf = sphere(20);
+                //SDF light_sdf = rotateX(translate(torus(float2(200, 60)), float3(200, 0, 0)), 90);
+                //light_sdf = translate(light_sdf, _CameraPos + _CameraUp * 30);
+                //light_sdf = repeat(light_sdf, 200);
+
+                //LightingModel lighting_model = torrance_sparrow(_Roughness, COPPER);
+                LightingModel lighting_model = lambert(GOLD);
+
 
                 int max_bounces = 3;
                 float3 view_dir = normalize(i.ray);
                 Ray view_ray = to_ray(_CameraPos, view_dir);
 
-                PathTracer path_tracer = new_path_tracer(view_ray, _WorldSpaceLightPos0.xyz, _Epsilon, _MaxDist, _MaxSteps, max_bounces, i.tex, _Intensity, _FocalDist, _Aperture, _CameraRight, _CameraUp, _CameraFwd);
+                PathTracer path_tracer = new_path_tracer(view_ray, _WorldSpaceLightPos0.xyz, _Epsilon, _MaxDist, _MaxSteps, max_bounces, i.tex, _Intensity * 40, _FocalDist * 0.00001, _Aperture, _CameraRight, _CameraUp, _CameraFwd);
 
                 fixed4 res = saturate(path_tracer.trace_path(scene_sdf, light_sdf, lighting_model));
                 //return fixed4(res.xyz * res.w + col.xyz * (1 - res.w), 1);
                 
 
-                return fixed4((res.xyz * res.a + back.xyz * (1 - res.a) + rec.xyz * _FeedbackCounter + 0.1) / (_FeedbackCounter + 1), 1);
+                return fixed4(1.0 * ((res.xyz * res.a + back.xyz * (1 - res.a)) + rec.xyz * _FeedbackCounter) / (_FeedbackCounter + 1), 1);
                 //return fixed4((res.xyz * res.a + back.xyz * (1 - res.a) + rec.xyz * (_FeedbackCounter + 1)) / (_FeedbackCounter + 2), 1);
 
             }

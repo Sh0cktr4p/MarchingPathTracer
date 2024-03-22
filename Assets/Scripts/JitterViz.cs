@@ -15,7 +15,7 @@ public class JitterViz : MonoBehaviour
 
     Vector3 JitterHemiSphere(Vector3 d, Vector3 i)
     {
-        float theta = Random.value * Mathf.PI * 2 * 0.8f;
+        float theta = Random.value * Mathf.PI * 2;
         float phi = Random.value * Mathf.PI * 0.5f;
 
         float x = Mathf.Sin(theta) * Mathf.Sin(phi);

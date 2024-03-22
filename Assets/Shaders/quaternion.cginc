@@ -1,7 +1,7 @@
 typedef float4 quaternion;
 
 quaternion quat(float3 axis, float angle){
-    return quaternion(axis * sin(angle), cos(angle));
+    return quaternion(axis * sin(angle / 2), cos(angle / 2));
 }
 
 quaternion conj(quaternion q){

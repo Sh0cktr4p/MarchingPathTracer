@@ -119,7 +119,6 @@ public class ImageEffect : MonoBehaviour
         effectMaterial.SetVector("_CameraUp", CurrentCamera.transform.up);
         effectMaterial.SetTexture("_BackgroundTex", src);
 
-        Debug.Log(feedbackCounter);
         if(feedback)
         {
             effectMaterial.SetInt("_FeedbackCounter", feedbackCounter);

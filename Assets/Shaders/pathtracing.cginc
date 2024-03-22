@@ -19,11 +19,25 @@ float3 jitter(float3 dir, float phi, float sina, float cosa){
 // phi: zenith
 float3 scatter(float3 nor, float theta, float phi) {
     float3 scatter_vec = float3(sin(theta) * sin(phi), cos(phi), cos(theta) * sin(phi));
-    float3 rot_axis = normalize(float3(scatter_vec.z, 0, -scatter_vec.x));
 
-    float angle = acos(nor.y);
-    quaternion q = quat(rot_axis, angle);
-    return qrot(q, scatter_vec);
+   // int over_surface = dot(nor, scatter_vec) > 0;
+    //return scatter_vec;
+
+    bool use_x = nor.x < 0.707 && nor.x > -0.707;
+    float3 pseudo_bitangent = lerp(float3(0, 1, 0), float3(1, 0, 0), use_x);
+    float3 tangent = normalize(cross(nor, pseudo_bitangent));
+    float3 binormal = cross(nor, tangent);
+    return scatter_vec.x * tangent + scatter_vec.y * nor + scatter_vec.z * binormal;
+    //float3 tangent_space_normal = float3(0, 1, 0);
+    //float3 rot_axis = normalize(cross(scatter_vec, nor));
+    //float rot_axis = normalize(cross(nor, -float3(0, 1, 0)));
+
+
+
+    //float angle = acos(dot(norm );
+    //quaternion q = quat(rot_axis, angle);
+
+    //return normalize(qrot(q, scatter_vec));
 }
 
 class PathTracer {
@@ -41,7 +55,7 @@ class PathTracer {
     int _random_seed;
 
     float get_random_value() {
-        float random_value = rand(_uv * _cam_up.xy + sin(_Time.xz) + _random_seed + 2.325876);
+        float random_value = rand(_uv + sin(_Time.xz) + sin(_Time.y + 0.2) * 1.353 + _random_seed + 2.325876);
         _random_seed++;
         return random_value;
     }
@@ -66,20 +80,22 @@ class PathTracer {
         return distorted_ray;
     }
 
-    float3 get_next_event_lighting(SDF combined_sdf, SDF light_sdf, LightingModel lighting_model, Ray in_ray, float3 pos, float3 nor) {
+    float3 get_next_event_lighting(SDF combined_sdf, SDF light_sdf, LightingModel lighting_model, Ray in_ray, float3 pos, float3 nor, float prev_dist) {
         // Get the ray to the closest point on the light source
         Ray next_event_ray = to_ray(pos, _ray_marcher.calc_normal(light_sdf, pos) * -1.);
 
         MarchResult next_event_march_result = _ray_marcher.march(combined_sdf, next_event_ray);
 
         bool hit_light_source = _ray_marcher.hit_sdf(light_sdf, next_event_march_result);
+        float dist = prev_dist + length(next_event_march_result._pos - pos);
 
-        return _intensity * lighting_model.eval(nor, in_ray._dir, next_event_ray._dir) * hit_light_source;
+        return lighting_model.eval(nor, in_ray._dir, next_event_ray._dir) * hit_light_source * _intensity / (dist * dist);
     }
 
     Ray reflect_ray(Ray in_ray, float3 pos, float3 nor) {
         //return to_ray(pos, reflect(in_ray._dir, nor));
-        return to_ray(pos, scatter(nor, get_random_value() * 2 * PI, get_random_value() * 0.5 * PI));
+        float3 dir = scatter(nor, get_random_value() * 2 * PI, get_random_value() * 0.5 * PI);
+        return to_ray(pos + 0.001 * dir, dir);
     }
 
     fixed4 trace_path(SDF scene_sdf, SDF light_sdf, LightingModel lighting_model) {
@@ -87,35 +103,47 @@ class PathTracer {
 
         float3 color_mask = 1;
         float3 acc_color = 0;
+        float acc_dist = 0;
 
-        MarchResult result = _ray_marcher.march(scene_sdf, out_ray);
+        SDF combined_sdf = unite(scene_sdf, light_sdf);
+        MarchResult result = _ray_marcher.march(combined_sdf, out_ray);
 
         if (!_ray_marcher.hit_something(result)) {
             return saturate(fixed4(acc_color, 0));
         }
 
-        SDF combined_sdf = unite(scene_sdf, light_sdf);
 
         for (int i = 0; i < _max_bounces; i++) {
             Ray in_ray = out_ray;
+            acc_dist += length(result._pos - out_ray._pos);
             float3 nor = _ray_marcher.calc_normal(combined_sdf, result._pos);
+            float cos_theta = dot(nor, in_ray._dir);
 
             // Check whether we hit a light source, otherwise perform next event estimation
             if (_ray_marcher.hit_sdf(light_sdf, result)) {
-                acc_color += color_mask * _intensity;
+                acc_color += color_mask * _intensity;// / (acc_dist * acc_dist);
             }
             else {
-                acc_color += color_mask * get_next_event_lighting(combined_sdf, light_sdf, lighting_model, in_ray, result._pos, nor);
+                acc_color += cos_theta * color_mask * get_next_event_lighting(combined_sdf, light_sdf, lighting_model, in_ray, result._pos, nor, acc_dist);
             }
 
             // Reflect ray
             out_ray = reflect_ray(in_ray, result._pos, nor);
-            color_mask *= lighting_model.eval(nor, in_ray._dir, out_ray._dir);
-
+            color_mask *= cos_theta * lighting_model.eval(nor, in_ray._dir, out_ray._dir);
+            
+            //if (length(out_ray._dir) < 0.5) return fixed4(1, 0, 0, 1);
+            //return fixed4(dot(out_ray._dir, nor).xxx, 1);
+            //return fixed4(nor - out_ray._dir, 1);
             // March on
             result = _ray_marcher.march(combined_sdf, out_ray);
 
             if (!_ray_marcher.hit_something(result)) {
+                if (_ray_marcher.out_of_steps(result)) {
+                    return fixed4(i == 0, i == 1, i == 2, 1) * fixed4(acc_color, 1);
+                }
+                else {
+                    acc_color += color_mask * _intensity * 0.01;// *max(0.01, dot(out_ray._dir, float3(0, 1, 0)));
+                }
                 return saturate(fixed4(acc_color, 1));
             }
         }

@@ -56,6 +56,8 @@ public class PlayerMovement : MonoBehaviour
         imageEffect.aperture += apertureDelta * apertureGain;
         imageEffect.focalDist += focalDistDelta * focalDistGain;
 
+        print(imageEffect.focalDist);
+
         if(translation == Vector3.zero && rotation == Vector3.zero && apertureDelta == 0 && focalDistDelta == 0 && modifyFeedback){
             imageEffect.feedback = true;
         }

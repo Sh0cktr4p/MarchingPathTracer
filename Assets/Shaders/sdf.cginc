@@ -573,6 +573,36 @@ SDF menger_sponge(int lev, float scl){
     return m;
 }
 
+
+SDF menger_sponge_classic(int lev, float scl) {
+    class Menger : SDF {
+        float eval(float3 pos) {
+            float3 mirror_normal_a = normalize(float3(-1, 0, 1));
+            float3 mirror_normal_b = normalize(float3(-1, 1, 0));
+            float3 mirror_normal_c = normalize(float3(1, 0, 0));
+            float scale = scl;
+
+            float pulse = (max(sin(_Time.w * 5), 0.5) - 0.5) * 2 * 0;
+
+            for (int i = 0; i < lev; i++) {
+                scale /= 3;
+
+                pos = translate_warp(pos, scale * 2);
+                //pos = translate_warp(pos, scale * float3(1, 0, 0) * 0.2);
+                pos = abs(pos + scale * 2) - scale * 2;
+                pos = mirror_warp(pos, mirror_normal_a, 0);
+                pos = mirror_warp(pos, mirror_normal_b, 0);
+                pos = mirror_warp(pos, mirror_normal_c, -scale);
+            }
+
+            return box(scale).eval(pos) -0.25 * scale;//- pulse * 0.8 * scale;
+        }
+    };
+
+    Menger m;
+    return m;
+}
+
 SDF menger_lod(int lev, float scl, float lim, float3 pps, float3 dir, float eps, float mxd, int mxs){
     class MengerLOD: SDF {
         float eval(float3 pos) {

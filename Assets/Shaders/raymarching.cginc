@@ -15,7 +15,6 @@ Ray to_ray(float3 pos, float3 dir) {
     return ray;
 }
 
-
 struct MarchResult{
     float3 _pos;
     float _min_dist;
@@ -42,9 +41,14 @@ class RayMarcher {
         return result._min_dist < _eps;
     }
 
+    bool out_of_steps(MarchResult result) {
+        return result._steps == _max_steps;
+    }
+
     bool hit_sdf(SDF sdf, MarchResult result) {
         return sdf.eval(result._pos) < _eps;
     }
+
 
     MarchResult march(SDF sdf, Ray ray) {
         float dist = _eps;

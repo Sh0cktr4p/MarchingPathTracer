@@ -15,21 +15,21 @@ class TorranceSparrow : LightingModel {
 
     fixed3 eval(float3 normal, float3 in_dir, float3 out_dir) {
         float3 l = in_dir;
-        float3 v = -out_dir;
+        float3 v = out_dir;
         float3 h = (l + v) / 2;
         h = normalize(h);
         float3 n = normal;
 
-        float3 f = _material + (1 - _material) * pow(1 - dot(n, l), 5);
+        float3 f = _material + (1 - _material) * pow(1 + dot(n, l), 5);
 
         float betha = acos(dot(h, n));
-        float d = exp(-pow(tan(betha), 2) / pow(_roughness, 2)) / (3.1416926 * pow(_roughness, 2) * pow(max(dot(h, n), 0.0001), 4));
+        float d = exp(-pow(tan(betha), 2) / pow(_roughness, 2)) / (3.1416926 * pow(_roughness, 2) * pow(dot(h, n)+ 0.0001, 4));
         float g = min(1, min(2 * dot(n, h) * dot(n, v) / dot(v, h), 2 * dot(n, h) * dot(n, l) / dot(v, h)));
-        if (isnan(d)) {
+        if (isinf(d)) {
             return float4(1, 0, 0, 1);
         }
-        float3 result = saturate(f * d * g / (3.1415926 * dot(n, l) * dot(n, v))) * dot(n, l);
-        return result;
+        float3 result = saturate(f * g * d/ (3.1415926 * dot(n, l) * dot(n, v)));
+        return result * dot(n, l);
     }
 };
 
@@ -40,6 +40,22 @@ TorranceSparrow torrance_sparrow(float roughness, float3 material) {
     };
 
     return ts;
+}
+
+class Lambert : LightingModel {
+    float3 _material;
+
+    fixed3 eval(float3 normal, float3 in_dir, float3 out_dir) {
+        return _material * dot(-out_dir, normal);
+    }
+};
+
+Lambert lambert(float3 material) {
+    Lambert l = {
+        material
+    };
+
+    return l;
 }
 
 
